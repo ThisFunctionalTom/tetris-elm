@@ -3,7 +3,6 @@ module Matrix exposing (..)
 import Types exposing (..)
 import Tetromino exposing (Tetromino)
 import Dict exposing (Dict)
-import Set
 
 
 type alias Matrix =
@@ -31,15 +30,7 @@ empty =
 addBlocks : Tetromino -> Matrix -> Matrix
 addBlocks tetromino matrix =
     let
-        tm : Dict Position Color
-        tm =
-            tetromino.positions
-                |> Set.toList
-                |> List.map (\pos -> ( add pos tetromino.offset, tetromino.color ))
-                |> Dict.fromList
-
-        blocks : Blocks
         blocks =
-            Dict.union matrix.blocks tm
+            Dict.union matrix.blocks (Tetromino.blocks tetromino)
     in
         { matrix | blocks = blocks }
