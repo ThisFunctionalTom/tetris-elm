@@ -5,12 +5,10 @@ import Svg exposing (..)
 import Svg.Attributes exposing (..)
 import String
 import Dict
-import Set
 import Time exposing (Time)
 import Tetromino exposing (..)
 import Matrix exposing (..)
 import Random.Pcg as Random
-import Random.Pcg.Interop exposing (fission)
 import Types exposing (..)
 import Platform.Sub as Sub
 import Keyboard exposing (KeyCode)
@@ -18,7 +16,7 @@ import Keyboard exposing (KeyCode)
 
 type alias State =
     { matrix : Matrix
-    , falling : Maybe Tetromino
+    , falling : Maybe Falling
     }
 
 
@@ -47,86 +45,56 @@ update msg state =
                     ( state, nextFalling )
 
                 Just falling ->
-                    let
-                        next =
-                            moveDown falling
-                    in
-                        if isValid state.matrix next then
-                            ( { state | falling = Just next }, Cmd.none )
-                        else
+                    case moveDown state.matrix falling of
+                        Nothing ->
                             ( { state | matrix = state.matrix |> addBlocks falling }, nextFalling )
 
+                        Just next ->
+                            ( { state | falling = Just next }, Cmd.none )
+
         NewTetromino maybeTetromino ->
-            ( { state | falling = maybeTetromino }, Cmd.none )
+            ( { state | falling = maybeTetromino |> Maybe.map (newFalling state.matrix) }, Cmd.none )
 
         KeyDown keyCode ->
             ( keyCode |> toKey |> Maybe.map (updateWithKey state) |> Maybe.withDefault state, Cmd.none )
 
 
-updateFalling : (Tetromino -> Tetromino) -> State -> State
-updateFalling f state =
-    case state.falling of
-        Nothing ->
-            state
-
-        Just falling ->
-            let
-                next =
-                    f falling
-            in
-                if isValid state.matrix next then
-                    { state | falling = Just next }
-                else
-                    state
-
-
-isValid : Matrix -> Tetromino -> Bool
-isValid matrix tetromino =
-    let
-        intersects =
-            matrix.blocks
-                |> Dict.keys
-                |> List.any (\pos -> Tetromino.blocks tetromino |> Dict.member pos)
-
-        inMatrix =
-            Tetromino.blocks tetromino
-                |> Dict.filter (\( col, row ) _ -> row >= matrix.height || col < 0 || col >= matrix.width)
-                |> Dict.isEmpty
-    in
-        not intersects && inMatrix
-
-
 updateWithKey : State -> Key -> State
 updateWithKey state key =
-    case key of
-        Left ->
-            state
-                |> updateFalling moveLeft
-
-        Right ->
-            state
-                |> updateFalling moveRight
-
-        Up ->
-            state |> updateFalling rotateRight
-
-        Down ->
-            state |> updateFalling moveDown
-
-        Space ->
-            state |> updateFalling (softDrop state.matrix)
-
-
-softDrop : Matrix -> Tetromino -> Tetromino
-softDrop matrix valid =
     let
-        next =
-            moveDown valid
+        transformation =
+            case key of
+                Left ->
+                    moveLeft
+
+                Right ->
+                    moveRight
+
+                Up ->
+                    rotateRight
+
+                Down ->
+                    moveDown
+
+                Space ->
+                    softDrop
     in
-        if isValid matrix next then
+        case state.falling |> Maybe.andThen (transformation state.matrix) of
+            Just next ->
+                { state | falling = Just next }
+
+            Nothing ->
+                state
+
+
+softDrop : Matrix -> Falling -> Maybe Falling
+softDrop matrix valid =
+    case moveDown matrix valid of
+        Just next ->
             softDrop matrix next
-        else
-            valid
+
+        Nothing ->
+            Just valid
 
 
 val : Int -> String
@@ -171,9 +139,9 @@ view state =
             ]
 
 
-viewFalling : Tetromino -> Svg msg
-viewFalling tetromino =
-    Tetromino.blocks tetromino
+viewFalling : Falling -> Svg msg
+viewFalling falling =
+    Tetromino.blocks falling.offset falling.rotation falling.tetromino
         |> viewBlocks
 
 
@@ -186,8 +154,8 @@ viewBlocks blocks =
         )
 
 
-viewBlock : ( Position, Color ) -> Svg msg
-viewBlock ( ( col, row ), color ) =
+viewBlock : ( Offset, Color ) -> Svg msg
+viewBlock ( ( row, col ), color ) =
     rect
         [ x <| toString col
         , y <| toString row

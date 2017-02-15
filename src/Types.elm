@@ -8,17 +8,29 @@ type alias Color =
     String
 
 
-type alias Position =
+type alias Offset =
     ( Int, Int )
 
 
-add : Position -> Position -> Position
-add ( x1, y1 ) ( x2, y2 ) =
+addOffset : Offset -> Offset -> Offset
+addOffset ( x1, y1 ) ( x2, y2 ) =
     ( x1 + x2, y1 + y2 )
 
 
+subOffset : Offset -> Offset -> Offset
+subOffset ( x1, y1 ) ( x2, y2 ) =
+    ( x1 - x2, y1 - y2 )
+
+
+type Rotation
+    = R0
+    | RR
+    | R2
+    | RL
+
+
 type alias Blocks =
-    Dict Position Color
+    Dict Offset Color
 
 
 type Key
