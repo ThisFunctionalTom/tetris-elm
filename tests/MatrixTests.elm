@@ -6,7 +6,6 @@ import Fuzz exposing (Fuzzer)
 import Random.Pcg as Random
 import Shrink
 import Types exposing (Offset, Blocks)
-import Set exposing (Set)
 import Tetromino
 import Types exposing (Color)
 import Dict exposing (Dict)
@@ -83,7 +82,7 @@ all =
                     , ( ( 1, 2 ), "green" )
                     ]
                         |> Dict.fromList
-                        |> Matrix 2 3
+                        |> Matrix 3 2
             in
                 grid
                     |> Matrix.toList

@@ -1,6 +1,6 @@
 module App exposing (..)
 
-import Html exposing (Html, h1, div, text)
+import Html exposing (Html, h1, h2, div, text)
 import Svg exposing (..)
 import Svg.Attributes exposing (..)
 import String
@@ -20,9 +20,9 @@ type alias Bag =
     }
 
 
-initialBag : Int -> Bag
-initialBag seed =
-    Bag (Random.initialSeed seed) tetrominos
+initBag : Random.Seed -> Bag
+initBag seed =
+    Bag seed tetrominos
 
 
 spawn : Bag -> ( Tetromino, Bag )
@@ -45,7 +45,7 @@ spawn { seed, tetrominos } =
                 ( chosen, Bag nextSeed (List.filter ((/=) chosen) tetrominos) )
 
 
-type alias State =
+type alias GameOnState =
     { matrix : Matrix
     , falling : Falling
     , bag : Bag
@@ -53,11 +53,27 @@ type alias State =
     }
 
 
+type alias GameOverState =
+    { score : Maybe Int
+    , seed : Random.Seed
+    }
+
+
+type State
+    = GameOn GameOnState
+    | GameOver GameOverState
+
+
 init : Int -> ( State, Cmd Msg )
-init seed =
+init intSeed =
+    ( GameOver <| GameOverState Nothing (Random.initialSeed intSeed), Cmd.none )
+
+
+startNew : Random.Seed -> ( State, Cmd Msg )
+startNew seed =
     let
         ( tetromino, bag ) =
-            spawn (initialBag seed)
+            spawn (initBag seed)
 
         matrix =
             Matrix.empty
@@ -65,7 +81,7 @@ init seed =
         falling =
             newFalling matrix tetromino
     in
-        ( State matrix falling bag 0, Cmd.none )
+        ( GameOn <| GameOnState matrix falling bag 0, Cmd.none )
 
 
 type Msg
@@ -75,6 +91,31 @@ type Msg
 
 update : Msg -> State -> ( State, Cmd Msg )
 update msg state =
+    case state of
+        GameOn gos ->
+            updateGameOn msg gos
+
+        GameOver gos ->
+            updateGameOver msg gos
+
+
+updateGameOver : Msg -> GameOverState -> ( State, Cmd Msg )
+updateGameOver msg state =
+    case msg of
+        KeyDown keyCode ->
+            case toKey keyCode of
+                Just F2 ->
+                    startNew state.seed
+
+                _ ->
+                    ( GameOver state, Cmd.none )
+
+        _ ->
+            ( GameOver state, Cmd.none )
+
+
+updateGameOn : Msg -> GameOnState -> ( State, Cmd Msg )
+updateGameOn msg state =
     case msg of
         Tick _ ->
             case moveDown state.matrix state.falling of
@@ -85,49 +126,61 @@ update msg state =
 
                         ( tetromino, bag ) =
                             spawn state.bag
+
+                        falling =
+                            newFalling state.matrix tetromino
                     in
-                        ( { state
-                            | matrix = matrix
-                            , score = state.score + count
-                            , falling = newFalling state.matrix tetromino
-                            , bag = bag
-                          }
-                        , Cmd.none
-                        )
+                        if isValid state.matrix falling then
+                            ( GameOn
+                                { state
+                                    | matrix = matrix
+                                    , score = state.score + count
+                                    , falling = falling
+                                    , bag = bag
+                                }
+                            , Cmd.none
+                            )
+                        else
+                            ( GameOver <| GameOverState (Just state.score) state.bag.seed, Cmd.none )
 
                 Just next ->
-                    ( { state | falling = next }, Cmd.none )
+                    ( GameOn { state | falling = next }, Cmd.none )
 
         KeyDown keyCode ->
-            ( keyCode |> toKey |> Maybe.map (updateWithKey state) |> Maybe.withDefault state, Cmd.none )
+            toKey keyCode
+                |> Maybe.map (updateWithKey state)
+                |> Maybe.withDefault ( GameOn state, Cmd.none )
 
 
-updateWithKey : State -> Key -> State
+updateWithKey : GameOnState -> Key -> ( State, Cmd Msg )
 updateWithKey state key =
     let
-        transformation =
-            case key of
-                Left ->
-                    moveLeft
+        transform f =
+            case state.falling |> f state.matrix of
+                Just next ->
+                    ( GameOn { state | falling = next }, Cmd.none )
 
-                Right ->
-                    moveRight
-
-                Up ->
-                    rotateRight
-
-                Down ->
-                    moveDown
-
-                Space ->
-                    softDrop
+                Nothing ->
+                    ( GameOn state, Cmd.none )
     in
-        case state.falling |> transformation state.matrix of
-            Just next ->
-                { state | falling = next }
+        case key of
+            F2 ->
+                startNew state.bag.seed
 
-            Nothing ->
-                state
+            Left ->
+                transform moveLeft
+
+            Right ->
+                transform moveRight
+
+            Up ->
+                transform rotateRight
+
+            Down ->
+                transform moveDown
+
+            Space ->
+                transform softDrop
 
 
 val : Int -> String
@@ -150,10 +203,27 @@ unitSize =
     30
 
 
-view :
-    State
-    -> Html Msg
+view : State -> Html Msg
 view state =
+    case state of
+        GameOver gos ->
+            viewGameOver gos
+
+        GameOn gos ->
+            viewGameOn gos
+
+
+viewGameOver : GameOverState -> Html Msg
+viewGameOver state =
+    div
+        []
+        [ h1 [] [ Html.text <| (state.score |> Maybe.map (toString >> (++) "Game over ") |> Maybe.withDefault "") ]
+        , h2 [] [ Html.text "press F2 to start" ]
+        ]
+
+
+viewGameOn : GameOnState -> Html Msg
+viewGameOn state =
     let
         w =
             toString <| 10 * unitSize
@@ -204,7 +274,12 @@ viewBlock ( ( row, col ), color ) =
 
 subscriptions : State -> Sub Msg
 subscriptions state =
-    Sub.batch
-        [ Time.every (250 * Time.millisecond) (\t -> Tick t)
-        , Keyboard.downs KeyDown
-        ]
+    case state of
+        GameOn _ ->
+            Sub.batch
+                [ Time.every (250 * Time.millisecond) (\t -> Tick t)
+                , Keyboard.downs KeyDown
+                ]
+
+        GameOver _ ->
+            Keyboard.downs KeyDown

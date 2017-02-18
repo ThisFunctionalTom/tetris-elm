@@ -39,12 +39,12 @@ type Key
     | Up
     | Down
     | Space
+    | F2
 
 
 toKey : KeyCode -> Maybe Key
 toKey code =
-    --|> Debug.log "KeyCode: "
-    case code of
+    case code |> Debug.log "KeyCode: " of
         32 ->
             Just Space
 
@@ -59,6 +59,9 @@ toKey code =
 
         40 ->
             Just Down
+
+        113 ->
+            Just F2
 
         _ ->
             Nothing
