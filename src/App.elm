@@ -1,6 +1,6 @@
 module App exposing (..)
 
-import Html exposing (Html)
+import Html exposing (Html, h1, div, text)
 import Svg exposing (..)
 import Svg.Attributes exposing (..)
 import String
@@ -17,12 +17,13 @@ import Keyboard exposing (KeyCode)
 type alias State =
     { matrix : Matrix
     , falling : Maybe Falling
+    , score : Int
     }
 
 
 init : ( State, Cmd Msg )
 init =
-    ( State Matrix.empty Nothing, Cmd.none )
+    ( State Matrix.empty Nothing 0, Cmd.none )
 
 
 type Msg
@@ -47,7 +48,11 @@ update msg state =
                 Just falling ->
                     case moveDown state.matrix falling of
                         Nothing ->
-                            ( { state | matrix = state.matrix |> addBlocks falling }, nextFalling )
+                            let
+                                ( count, matrix ) =
+                                    state.matrix |> addBlocks falling |> removeFullLines
+                            in
+                                ( { state | matrix = matrix, score = state.score + count }, nextFalling )
 
                         Just next ->
                             ( { state | falling = Just next }, Cmd.none )
@@ -118,14 +123,17 @@ view state =
         h =
             toString <| 22 * unitSize
     in
-        svg
-            [ width w
-            , height h
-            , viewBox <| vals playFieldBox
-            ]
-            [ rect [ x "0", y "0", width w, height h, color "black" ] []
-            , viewBlocks state.matrix.blocks
-            , state.falling |> Maybe.map viewFalling |> Maybe.withDefault (g [] [])
+        div []
+            [ h1 [] [ Html.text (toString state.score) ]
+            , svg
+                [ width w
+                , height h
+                , viewBox <| vals playFieldBox
+                ]
+                [ rect [ x "0", y "0", width w, height h, color "black" ] []
+                , viewBlocks state.matrix.blocks
+                , state.falling |> Maybe.map viewFalling |> Maybe.withDefault (g [] [])
+                ]
             ]
 
 

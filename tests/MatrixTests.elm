@@ -56,7 +56,7 @@ all =
         \() ->
             let
                 matrix =
-                    [ [ Just "red", Just "blue" ], [ Just "yellow", Just "green" ] ]
+                    [ [ Just "red", Just "blue", Nothing ], [ Just "yellow", Nothing, Just "green" ] ]
                         |> Matrix.fromList
 
                 blocks =
@@ -69,7 +69,7 @@ all =
                     [ at ( 0, 0 ) "red"
                     , at ( 0, 1 ) "blue"
                     , at ( 1, 0 ) "yellow"
-                    , at ( 1, 1 ) "green"
+                    , at ( 1, 2 ) "green"
                     ]
                     blocks
     , test "Simple Matrix to Grid" <|
@@ -80,14 +80,14 @@ all =
                     [ ( ( 0, 0 ), "red" )
                     , ( ( 0, 1 ), "blue" )
                     , ( ( 1, 0 ), "yellow" )
-                    , ( ( 1, 1 ), "green" )
+                    , ( ( 1, 2 ), "green" )
                     ]
                         |> Dict.fromList
-                        |> Matrix 2 2
+                        |> Matrix 2 3
             in
                 grid
                     |> Matrix.toList
-                    |> Expect.equal [ [ Just "red", Just "blue" ], [ Just "yellow", Just "green" ] ]
+                    |> Expect.equal [ [ Just "red", Just "blue", Nothing ], [ Just "yellow", Nothing, Just "green" ] ]
     , test "Range + Map" <|
         \() ->
             List.range 0 1

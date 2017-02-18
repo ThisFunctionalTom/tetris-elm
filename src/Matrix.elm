@@ -182,6 +182,30 @@ addBlocks falling matrix =
     { matrix | blocks = matrix.blocks |> Dict.union (blocks falling) }
 
 
+removeFullLines : Matrix -> ( Int, Matrix )
+removeFullLines matrix =
+    let
+        ( full, rest ) =
+            matrix
+                |> toList
+                |> List.partition (\row -> countFull row == matrix.width)
+
+        countFull row =
+            List.filterMap identity row
+                |> List.length
+
+        count =
+            List.length full
+
+        emptyRow =
+            List.repeat matrix.width Nothing
+
+        emptyLines =
+            List.repeat count emptyRow
+    in
+        ( count, fromList (List.append emptyLines rest) )
+
+
 toList : Matrix -> List (List (Maybe Color))
 toList { width, height, blocks } =
     List.range 0 (height - 1)
@@ -195,10 +219,10 @@ toList { width, height, blocks } =
 fromList : List (List (Maybe Color)) -> Matrix
 fromList list =
     let
-        rows =
+        height =
             List.length list
 
-        cols =
+        width =
             List.head list |> Maybe.map List.length |> Maybe.withDefault 0
 
         transformRow row cells =
@@ -212,4 +236,4 @@ fromList list =
                 |> List.filterMap identity
                 |> Dict.fromList
     in
-        Matrix rows cols blocks
+        Matrix width height blocks
