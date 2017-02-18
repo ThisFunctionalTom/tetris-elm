@@ -20,16 +20,19 @@ type alias Bag =
     }
 
 
-initialBag : Bag
-initialBag =
-    Bag (Random.initialSeed 3) tetrominos
+initialBag : Int -> Bag
+initialBag seed =
+    Bag (Random.initialSeed seed) tetrominos
 
 
 spawn : Bag -> ( Tetromino, Bag )
 spawn { seed, tetrominos } =
     case tetrominos of
         [] ->
-            Debug.crash "Should never happen"
+            ( Tetromino.tetrominoT, Bag seed Tetromino.tetrominos )
+
+        lastOne :: [] ->
+            ( lastOne, Bag seed Tetromino.tetrominos )
 
         default :: rest ->
             let
@@ -39,12 +42,7 @@ spawn { seed, tetrominos } =
                 ( chosen, nextSeed ) =
                     Random.step generator seed
             in
-                case rest of
-                    [] ->
-                        ( chosen, Bag nextSeed Tetromino.tetrominos )
-
-                    notEmpty ->
-                        ( chosen, Bag nextSeed (List.filter ((/=) chosen) tetrominos) )
+                ( chosen, Bag nextSeed (List.filter ((/=) chosen) tetrominos) )
 
 
 type alias State =
@@ -55,27 +53,23 @@ type alias State =
     }
 
 
-init : ( State, Cmd Msg )
-init =
+init : Int -> ( State, Cmd Msg )
+init seed =
     let
         ( tetromino, bag ) =
-            spawn initialBag
+            spawn (initialBag seed)
 
         matrix =
             Matrix.empty
 
         falling =
             newFalling matrix tetromino
-
-        bagColors =
-            bag.tetrominos |> List.map .color |> Debug.log "Initial bag: "
     in
         ( State matrix falling bag 0, Cmd.none )
 
 
 type Msg
     = Tick Time
-      --| NewTetromino (Maybe Tetromino)
     | KeyDown KeyCode
 
 
@@ -91,9 +85,6 @@ update msg state =
 
                         ( tetromino, bag ) =
                             spawn state.bag
-
-                        bagColors =
-                            bag.tetrominos |> List.map .color |> Debug.log "Bag: "
                     in
                         ( { state
                             | matrix = matrix
@@ -107,8 +98,6 @@ update msg state =
                 Just next ->
                     ( { state | falling = next }, Cmd.none )
 
-        -- NewTetromino maybeTetromino ->
-        --     ( { state | falling = maybeTetromino |> Maybe.map (newFalling state.matrix) }, Cmd.none )
         KeyDown keyCode ->
             ( keyCode |> toKey |> Maybe.map (updateWithKey state) |> Maybe.withDefault state, Cmd.none )
 
