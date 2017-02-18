@@ -14,52 +14,101 @@ import Platform.Sub as Sub
 import Keyboard exposing (KeyCode)
 
 
+type alias Bag =
+    { seed : Random.Seed
+    , tetrominos : List Tetromino
+    }
+
+
+initialBag : Bag
+initialBag =
+    Bag (Random.initialSeed 3) tetrominos
+
+
+spawn : Bag -> ( Tetromino, Bag )
+spawn { seed, tetrominos } =
+    case tetrominos of
+        [] ->
+            Debug.crash "Should never happen"
+
+        default :: rest ->
+            let
+                generator =
+                    Random.sample tetrominos |> Random.map (Maybe.withDefault default)
+
+                ( chosen, nextSeed ) =
+                    Random.step generator seed
+            in
+                case rest of
+                    [] ->
+                        ( chosen, Bag nextSeed Tetromino.tetrominos )
+
+                    notEmpty ->
+                        ( chosen, Bag nextSeed (List.filter ((/=) chosen) tetrominos) )
+
+
 type alias State =
     { matrix : Matrix
-    , falling : Maybe Falling
+    , falling : Falling
+    , bag : Bag
     , score : Int
     }
 
 
 init : ( State, Cmd Msg )
 init =
-    ( State Matrix.empty Nothing 0, Cmd.none )
+    let
+        ( tetromino, bag ) =
+            spawn initialBag
+
+        matrix =
+            Matrix.empty
+
+        falling =
+            newFalling matrix tetromino
+
+        bagColors =
+            bag.tetrominos |> List.map .color |> Debug.log "Initial bag: "
+    in
+        ( State matrix falling bag 0, Cmd.none )
 
 
 type Msg
     = Tick Time
-    | NewTetromino (Maybe Tetromino)
+      --| NewTetromino (Maybe Tetromino)
     | KeyDown KeyCode
-
-
-nextFalling : Cmd Msg
-nextFalling =
-    Random.generate NewTetromino (Random.sample tetrominos)
 
 
 update : Msg -> State -> ( State, Cmd Msg )
 update msg state =
     case msg of
         Tick _ ->
-            case state.falling of
+            case moveDown state.matrix state.falling of
                 Nothing ->
-                    ( state, nextFalling )
+                    let
+                        ( count, matrix ) =
+                            state.matrix |> addBlocks state.falling |> removeFullLines
 
-                Just falling ->
-                    case moveDown state.matrix falling of
-                        Nothing ->
-                            let
-                                ( count, matrix ) =
-                                    state.matrix |> addBlocks falling |> removeFullLines
-                            in
-                                ( { state | matrix = matrix, score = state.score + count }, nextFalling )
+                        ( tetromino, bag ) =
+                            spawn state.bag
 
-                        Just next ->
-                            ( { state | falling = Just next }, Cmd.none )
+                        bagColors =
+                            bag.tetrominos |> List.map .color |> Debug.log "Bag: "
+                    in
+                        ( { state
+                            | matrix = matrix
+                            , score = state.score + count
+                            , falling = newFalling state.matrix tetromino
+                            , bag = bag
+                          }
+                        , Cmd.none
+                        )
 
-        NewTetromino maybeTetromino ->
-            ( { state | falling = maybeTetromino |> Maybe.map (newFalling state.matrix) }, Cmd.none )
+                Just next ->
+                    ( { state | falling = next }, Cmd.none )
 
+        -- NewTetromino maybeTetromino ->
+        --     ( { state | falling = maybeTetromino |> Maybe.map (newFalling state.matrix) }, Cmd.none )
         KeyDown keyCode ->
             ( keyCode |> toKey |> Maybe.map (updateWithKey state) |> Maybe.withDefault state, Cmd.none )
 
@@ -84,9 +133,9 @@ updateWithKey state key =
                 Space ->
                     softDrop
     in
-        case state.falling |> Maybe.andThen (transformation state.matrix) of
+        case state.falling |> transformation state.matrix of
             Just next ->
-                { state | falling = Just next }
+                { state | falling = next }
 
             Nothing ->
                 state
@@ -132,7 +181,7 @@ view state =
                 ]
                 [ rect [ x "0", y "0", width w, height h, color "black" ] []
                 , viewBlocks state.matrix.blocks
-                , state.falling |> Maybe.map viewFalling |> Maybe.withDefault (g [] [])
+                , state.falling |> viewFalling
                 ]
             ]
 
