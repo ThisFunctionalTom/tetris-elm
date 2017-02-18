@@ -12,37 +12,7 @@ import Random.Pcg as Random
 import Types exposing (..)
 import Platform.Sub as Sub
 import Keyboard exposing (KeyCode)
-
-
-type alias Bag =
-    { seed : Random.Seed
-    , tetrominos : List Tetromino
-    }
-
-
-initBag : Random.Seed -> Bag
-initBag seed =
-    Bag seed tetrominos
-
-
-spawn : Bag -> ( Tetromino, Bag )
-spawn { seed, tetrominos } =
-    case tetrominos of
-        [] ->
-            ( Tetromino.tetrominoT, Bag seed Tetromino.tetrominos )
-
-        lastOne :: [] ->
-            ( lastOne, Bag seed Tetromino.tetrominos )
-
-        default :: rest ->
-            let
-                generator =
-                    Random.sample tetrominos |> Random.map (Maybe.withDefault default)
-
-                ( chosen, nextSeed ) =
-                    Random.step generator seed
-            in
-                ( chosen, Bag nextSeed (List.filter ((/=) chosen) tetrominos) )
+import TetrominoBag exposing (..)
 
 
 type alias GameOnState =
@@ -54,22 +24,24 @@ type alias GameOnState =
 
 
 type alias GameOverState =
-    { score : Maybe Int
+    { score : Int
+    , matrix : Matrix
     , seed : Random.Seed
     }
 
 
 type State
-    = GameOn GameOnState
+    = HomeScreen Random.Seed
+    | GameOn GameOnState
     | GameOver GameOverState
 
 
 init : Int -> ( State, Cmd Msg )
 init intSeed =
-    ( GameOver <| GameOverState Nothing (Random.initialSeed intSeed), Cmd.none )
+    ( HomeScreen (Random.initialSeed intSeed), Cmd.none )
 
 
-startNew : Random.Seed -> ( State, Cmd Msg )
+startNew : Random.Seed -> State
 startNew seed =
     let
         ( tetromino, bag ) =
@@ -81,7 +53,7 @@ startNew seed =
         falling =
             newFalling matrix tetromino
     in
-        ( GameOn <| GameOnState matrix falling bag 0, Cmd.none )
+        GameOn <| GameOnState matrix falling bag 0
 
 
 type Msg
@@ -91,7 +63,25 @@ type Msg
 
 update : Msg -> State -> ( State, Cmd Msg )
 update msg state =
+    ( simpleUpdate msg state, Cmd.none )
+
+
+simpleUpdate : Msg -> State -> State
+simpleUpdate msg state =
     case state of
+        HomeScreen seed ->
+            case msg of
+                KeyDown keyCode ->
+                    case toKey keyCode of
+                        Just F2 ->
+                            startNew seed
+
+                        _ ->
+                            HomeScreen seed
+
+                _ ->
+                    HomeScreen seed
+
         GameOn gos ->
             updateGameOn msg gos
 
@@ -99,7 +89,7 @@ update msg state =
             updateGameOver msg gos
 
 
-updateGameOver : Msg -> GameOverState -> ( State, Cmd Msg )
+updateGameOver : Msg -> GameOverState -> State
 updateGameOver msg state =
     case msg of
         KeyDown keyCode ->
@@ -108,13 +98,13 @@ updateGameOver msg state =
                     startNew state.seed
 
                 _ ->
-                    ( GameOver state, Cmd.none )
+                    GameOver state
 
         _ ->
-            ( GameOver state, Cmd.none )
+            GameOver state
 
 
-updateGameOn : Msg -> GameOnState -> ( State, Cmd Msg )
+updateGameOn : Msg -> GameOnState -> State
 updateGameOn msg state =
     case msg of
         Tick _ ->
@@ -131,37 +121,35 @@ updateGameOn msg state =
                             newFalling state.matrix tetromino
                     in
                         if isValid state.matrix falling then
-                            ( GameOn
+                            GameOn
                                 { state
                                     | matrix = matrix
                                     , score = state.score + count
                                     , falling = falling
                                     , bag = bag
                                 }
-                            , Cmd.none
-                            )
                         else
-                            ( GameOver <| GameOverState (Just state.score) state.bag.seed, Cmd.none )
+                            GameOver <| GameOverState state.score state.matrix state.bag.seed
 
                 Just next ->
-                    ( GameOn { state | falling = next }, Cmd.none )
+                    GameOn { state | falling = next }
 
         KeyDown keyCode ->
             toKey keyCode
                 |> Maybe.map (updateWithKey state)
-                |> Maybe.withDefault ( GameOn state, Cmd.none )
+                |> Maybe.withDefault (GameOn state)
 
 
-updateWithKey : GameOnState -> Key -> ( State, Cmd Msg )
+updateWithKey : GameOnState -> Key -> State
 updateWithKey state key =
     let
         transform f =
             case state.falling |> f state.matrix of
                 Just next ->
-                    ( GameOn { state | falling = next }, Cmd.none )
+                    GameOn { state | falling = next }
 
                 Nothing ->
-                    ( GameOn state, Cmd.none )
+                    GameOn state
     in
         case key of
             F2 ->
@@ -206,6 +194,9 @@ unitSize =
 view : State -> Html Msg
 view state =
     case state of
+        HomeScreen _ ->
+            viewHomeScreen
+
         GameOver gos ->
             viewGameOver gos
 
@@ -213,35 +204,47 @@ view state =
             viewGameOn gos
 
 
+viewHomeScreen : Html Msg
+viewHomeScreen =
+    div [] [ h1 [] [ Html.text "Press F2 to start." ] ]
+
+
 viewGameOver : GameOverState -> Html Msg
 viewGameOver state =
     div
         []
-        [ h1 [] [ Html.text <| (state.score |> Maybe.map (toString >> (++) "Game over ") |> Maybe.withDefault "") ]
+        [ h1 [] [ Html.text <| "Game over " ++ (toString state.score) ]
         , h2 [] [ Html.text "press F2 to start" ]
+        , viewMatrix state.matrix Nothing
         ]
 
 
 viewGameOn : GameOnState -> Html Msg
 viewGameOn state =
+    div []
+        [ h1 []
+            [ Html.text (toString state.score) ]
+        , viewMatrix state.matrix (Just state.falling)
+        ]
+
+
+viewMatrix : Matrix -> Maybe Falling -> Html Msg
+viewMatrix matrix maybeFalling =
     let
         w =
-            toString <| 10 * unitSize
+            toString <| matrix.width * unitSize
 
         h =
-            toString <| 22 * unitSize
+            toString <| matrix.height * unitSize
     in
-        div []
-            [ h1 [] [ Html.text (toString state.score) ]
-            , svg
-                [ width w
-                , height h
-                , viewBox <| vals playFieldBox
-                ]
-                [ rect [ x "0", y "0", width w, height h, color "black" ] []
-                , viewBlocks state.matrix.blocks
-                , state.falling |> viewFalling
-                ]
+        svg
+            [ width w
+            , height h
+            , viewBox <| vals playFieldBox
+            ]
+            [ rect [ x "0", y "0", width w, height h, color "black" ] []
+            , viewBlocks matrix.blocks
+            , maybeFalling |> Maybe.map viewFalling |> Maybe.withDefault (g [] [])
             ]
 
 
@@ -282,4 +285,7 @@ subscriptions state =
                 ]
 
         GameOver _ ->
+            Keyboard.downs KeyDown
+
+        HomeScreen _ ->
             Keyboard.downs KeyDown
