@@ -12,6 +12,12 @@ type alias Offset =
     ( Int, Int )
 
 
+type alias Size =
+    { width : Int
+    , height : Int
+    }
+
+
 addOffset : Offset -> Offset -> Offset
 addOffset ( x1, y1 ) ( x2, y2 ) =
     ( x1 + x2, y1 + y2 )

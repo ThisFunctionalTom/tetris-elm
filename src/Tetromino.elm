@@ -81,17 +81,17 @@ rotate rotation size minos =
 
 rotateMinosLeft : Int -> Offset -> Offset
 rotateMinosLeft size ( row, col ) =
-    ( size - 1 - col, row )
+    ( size - col - 1, row )
 
 
 rotateMinosRight : Int -> Offset -> Offset
 rotateMinosRight size ( row, col ) =
-    ( col, size - 1 - row )
+    ( col, size - row - 1 )
 
 
 rotateMinosTwice : Int -> Offset -> Offset
 rotateMinosTwice size ( row, col ) =
-    ( size - row, size - col )
+    ( size - row - 1, size - col - 1 )
 
 
 tetrominoI : Tetromino

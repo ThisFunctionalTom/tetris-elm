@@ -1,5 +1,7 @@
 module Matrix exposing (..)
 
+import Svg exposing (..)
+import Svg.Attributes exposing (..)
 import Types exposing (..)
 import Tetromino exposing (Tetromino)
 import Dict exposing (Dict)
@@ -30,7 +32,7 @@ spawnOffset matrix tetromino =
         col =
             (matrix.width - tetromino.size) // 2
     in
-        ( 0, col )
+        ( 4, col )
 
 
 type ValidationResult
@@ -162,19 +164,14 @@ softDrop matrix valid =
             Just valid
 
 
-fieldWidth : Int
-fieldWidth =
-    10
-
-
-fieldHeight : Int
-fieldHeight =
-    22
+defaultSize : { width : Int, height : Int }
+defaultSize =
+    { width = 10, height = 22 }
 
 
 empty : Matrix
 empty =
-    (Matrix fieldWidth fieldHeight Dict.empty)
+    (Matrix defaultSize.width defaultSize.height Dict.empty)
 
 
 addBlocks : Falling -> Matrix -> Matrix
@@ -237,3 +234,86 @@ fromList list =
                 |> Dict.fromList
     in
         Matrix width height blocks
+
+
+vals : List Int -> String
+vals values =
+    values |> List.map toString |> String.join " "
+
+
+viewMatrix : Int -> Matrix -> List Falling -> Svg.Svg msg
+viewMatrix cellSize matrix falling =
+    let
+        w =
+            toString <| matrix.width * cellSize
+
+        h =
+            toString <| matrix.height * cellSize
+    in
+        svg
+            [ width w
+            , height h
+            , viewBox <| vals [ 0, 0, matrix.width, matrix.height ]
+            ]
+            [ rect [ x "0", y "0", width w, height h, color "black" ] []
+            , viewBlocks matrix.blocks
+            , g [] (falling |> List.map viewFalling)
+            ]
+
+
+viewFalling : Falling -> Svg msg
+viewFalling falling =
+    let
+        viewDebug =
+            rect
+                [ x <| toString (Tuple.second falling.offset)
+                , y <| toString (Tuple.first falling.offset)
+                , width <| toString falling.tetromino.size
+                , height <| toString falling.tetromino.size
+                , fill "none"
+                , stroke "red"
+                , strokeWidth "0.1"
+                ]
+                []
+    in
+        g []
+            [ Tetromino.blocks falling.offset falling.rotation falling.tetromino
+                |> viewBlocks
+              --, viewDebug
+            ]
+
+
+viewBlocks : Blocks -> Svg msg
+viewBlocks blocks =
+    g []
+        (blocks
+            |> Dict.toList
+            |> List.map viewBlock
+        )
+
+
+viewBlock : ( Offset, Color ) -> Svg msg
+viewBlock ( ( row, col ), color ) =
+    rect
+        [ x <| toString col
+        , y <| toString row
+        , width "0.9"
+        , height "0.9"
+        , fill color
+        ]
+        []
+
+
+viewSample : Int -> Svg msg
+viewSample cellSize =
+    let
+        t =
+            Tetromino.tetrominoZ
+    in
+        viewMatrix cellSize
+            empty
+            [ Falling t R0 ( 1, 3 )
+            , Falling t RR ( 1 + t.size, 3 )
+            , Falling t R2 ( 1 + 2 * t.size, 3 )
+            , Falling t RL ( 1 + 3 * t.size, 3 )
+            ]

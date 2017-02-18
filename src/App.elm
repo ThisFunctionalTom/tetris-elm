@@ -1,12 +1,7 @@
 module App exposing (..)
 
 import Html exposing (Html, h1, h2, div, text)
-import Svg exposing (..)
-import Svg.Attributes exposing (..)
-import String
-import Dict
 import Time exposing (Time)
-import Tetromino exposing (..)
 import Matrix exposing (..)
 import Random.Pcg as Random
 import Types exposing (..)
@@ -162,7 +157,7 @@ updateWithKey state key =
                 transform moveRight
 
             Up ->
-                transform rotateRight
+                transform rotateLeft
 
             Down ->
                 transform moveDown
@@ -176,18 +171,8 @@ val value =
     toString value
 
 
-vals : List Int -> String
-vals values =
-    values |> List.map toString |> String.join " "
-
-
-playFieldBox : List Int
-playFieldBox =
-    [ 0, 0, 10, 22 ]
-
-
-unitSize : Int
-unitSize =
+cellSize : Int
+cellSize =
     30
 
 
@@ -206,7 +191,10 @@ view state =
 
 viewHomeScreen : Html Msg
 viewHomeScreen =
-    div [] [ h1 [] [ Html.text "Press F2 to start." ] ]
+    div []
+        [ h1 [] [ Html.text "Press F2 to start." ]
+        , viewSample cellSize
+        ]
 
 
 viewGameOver : GameOverState -> Html Msg
@@ -215,7 +203,7 @@ viewGameOver state =
         []
         [ h1 [] [ Html.text <| "Game over " ++ (toString state.score) ]
         , h2 [] [ Html.text "press F2 to start" ]
-        , viewMatrix state.matrix Nothing
+        , viewMatrix cellSize state.matrix []
         ]
 
 
@@ -224,55 +212,8 @@ viewGameOn state =
     div []
         [ h1 []
             [ Html.text (toString state.score) ]
-        , viewMatrix state.matrix (Just state.falling)
+        , viewMatrix cellSize state.matrix [ state.falling ]
         ]
-
-
-viewMatrix : Matrix -> Maybe Falling -> Html Msg
-viewMatrix matrix maybeFalling =
-    let
-        w =
-            toString <| matrix.width * unitSize
-
-        h =
-            toString <| matrix.height * unitSize
-    in
-        svg
-            [ width w
-            , height h
-            , viewBox <| vals playFieldBox
-            ]
-            [ rect [ x "0", y "0", width w, height h, color "black" ] []
-            , viewBlocks matrix.blocks
-            , maybeFalling |> Maybe.map viewFalling |> Maybe.withDefault (g [] [])
-            ]
-
-
-viewFalling : Falling -> Svg msg
-viewFalling falling =
-    Tetromino.blocks falling.offset falling.rotation falling.tetromino
-        |> viewBlocks
-
-
-viewBlocks : Blocks -> Svg msg
-viewBlocks blocks =
-    g []
-        (blocks
-            |> Dict.toList
-            |> List.map viewBlock
-        )
-
-
-viewBlock : ( Offset, Color ) -> Svg msg
-viewBlock ( ( row, col ), color ) =
-    rect
-        [ x <| toString col
-        , y <| toString row
-        , width "0.9"
-        , height "0.9"
-        , fill color
-        ]
-        []
 
 
 subscriptions : State -> Sub Msg
