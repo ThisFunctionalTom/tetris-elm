@@ -39,27 +39,6 @@ type ValidationResult
     | BlockIntersection
 
 
-validate : Matrix -> Falling -> ValidationResult
-validate matrix falling =
-    let
-        intersects =
-            matrix.blocks
-                |> Dict.keys
-                |> List.any (\pos -> blocks falling |> Dict.member pos)
-
-        inMatrix =
-            blocks falling
-                |> Dict.filter (\( col, row ) _ -> row >= matrix.height || col < 0 || col >= matrix.width)
-                |> Dict.isEmpty
-    in
-        if not inMatrix then
-            OutOfMatrix
-        else if intersects then
-            BlockIntersection
-        else
-            Valid
-
-
 isValid : Matrix -> Falling -> Bool
 isValid matrix falling =
     let
@@ -173,6 +152,16 @@ moveDown matrix falling =
             Nothing
 
 
+softDrop : Matrix -> Falling -> Maybe Falling
+softDrop matrix valid =
+    case moveDown matrix valid of
+        Just next ->
+            softDrop matrix next
+
+        Nothing ->
+            Just valid
+
+
 fieldWidth : Int
 fieldWidth =
     10
@@ -185,13 +174,42 @@ fieldHeight =
 
 empty : Matrix
 empty =
-    Matrix fieldWidth fieldHeight Dict.empty
+    (Matrix fieldWidth fieldHeight Dict.empty)
 
 
 addBlocks : Falling -> Matrix -> Matrix
 addBlocks falling matrix =
+    { matrix | blocks = matrix.blocks |> Dict.union (blocks falling) }
+
+
+toList : Matrix -> List (List (Maybe Color))
+toList { width, height, blocks } =
+    List.range 0 (height - 1)
+        |> List.map
+            (\row ->
+                List.range 0 (width - 1)
+                    |> List.map (\col -> Dict.get ( row, col ) blocks)
+            )
+
+
+fromList : List (List (Maybe Color)) -> Matrix
+fromList list =
     let
-        tblocks =
-            Dict.union matrix.blocks (blocks falling)
+        rows =
+            List.length list
+
+        cols =
+            List.head list |> Maybe.map List.length |> Maybe.withDefault 0
+
+        transformRow row cells =
+            cells
+                |> List.indexedMap (\col cell -> cell |> Maybe.map ((,) ( row, col )))
+
+        blocks =
+            list
+                |> List.indexedMap (,)
+                |> List.concatMap (uncurry transformRow)
+                |> List.filterMap identity
+                |> Dict.fromList
     in
-        { matrix | blocks = tblocks }
+        Matrix rows cols blocks

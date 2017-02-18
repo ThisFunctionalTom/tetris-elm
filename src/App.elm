@@ -87,16 +87,6 @@ updateWithKey state key =
                 state
 
 
-softDrop : Matrix -> Falling -> Maybe Falling
-softDrop matrix valid =
-    case moveDown matrix valid of
-        Just next ->
-            softDrop matrix next
-
-        Nothing ->
-            Just valid
-
-
 val : Int -> String
 val value =
     toString value

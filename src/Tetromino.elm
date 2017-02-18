@@ -2,8 +2,8 @@ module Tetromino exposing (..)
 
 import String
 import Set exposing (Set)
-import Dict
 import Types exposing (..)
+import Dict
 
 
 type alias Kicks =
