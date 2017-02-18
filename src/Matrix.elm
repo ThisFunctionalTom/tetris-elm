@@ -32,7 +32,7 @@ spawnOffset matrix tetromino =
         col =
             (matrix.width - tetromino.size) // 2
     in
-        ( 4, col )
+        ( 0, col )
 
 
 type ValidationResult
