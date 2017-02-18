@@ -255,10 +255,31 @@ viewMatrix cellSize matrix falling =
             , height h
             , viewBox <| vals [ 0, 0, matrix.width, matrix.height ]
             ]
-            [ rect [ x "0", y "0", width w, height h, color "black" ] []
+            [ viewGrid matrix.width matrix.height
             , viewBlocks matrix.blocks
             , g [] (falling |> List.map viewFalling)
             ]
+
+
+viewGrid : Int -> Int -> Svg msg
+viewGrid gridWidth gridHeight =
+    let
+        viewCell row col =
+            rect
+                [ x <| toString col
+                , y <| toString row
+                , width "1"
+                , height "1"
+                , color "black"
+                , stroke "gray"
+                , strokeWidth "0.02"
+                ]
+                []
+
+        viewRow width row =
+            g [] (List.range 0 (gridWidth - 1) |> List.map (viewCell row))
+    in
+        g [] (List.range 0 (gridHeight - 1) |> List.map (viewRow width))
 
 
 viewFalling : Falling -> Svg msg
@@ -295,8 +316,8 @@ viewBlocks blocks =
 viewBlock : ( Offset, Color ) -> Svg msg
 viewBlock ( ( row, col ), color ) =
     rect
-        [ x <| toString col
-        , y <| toString row
+        [ x <| toString (toFloat col + 0.05)
+        , y <| toString (toFloat row + 0.05)
         , width "0.9"
         , height "0.9"
         , fill color
