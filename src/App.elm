@@ -1,7 +1,9 @@
 module App exposing (..)
 
-import Html exposing (Html, h1, h2, div, text)
-import Html.Attributes exposing (class)
+import Html exposing (..)
+import Html.Attributes exposing (..)
+import Html.Attributes.Aria exposing (..)
+import Html.Events exposing (..)
 import Time exposing (Time)
 import Matrix exposing (..)
 import Random.Pcg as Random
@@ -24,6 +26,7 @@ type alias GameOnState =
     , bag : Bag
     , score : Int
     , windowSize : Window.Size
+    , settings : Settings
     }
 
 
@@ -32,12 +35,14 @@ type alias GameOverState =
     , matrix : Matrix
     , seed : Random.Seed
     , windowSize : Window.Size
+    , settings : Settings
     }
 
 
 type alias HomeScreenState =
     { seed : Random.Seed
     , windowSize : Window.Size
+    , settings : Settings
     }
 
 
@@ -49,11 +54,11 @@ type State
 
 init : ( Int, ( Int, Int ) ) -> ( State, Cmd Msg )
 init ( intSeed, ( width, height ) ) =
-    ( HomeScreen <| HomeScreenState (Random.initialSeed intSeed) (Window.Size width height), Cmd.none )
+    ( HomeScreen <| HomeScreenState (Random.initialSeed intSeed) (Window.Size width height) defaultSettings, Cmd.none )
 
 
-startNew : Random.Seed -> Window.Size -> State
-startNew seed windowSize =
+startNew : Settings -> Random.Seed -> Window.Size -> State
+startNew settings seed windowSize =
     let
         ( tetromino, bag ) =
             spawn (initBag seed)
@@ -74,6 +79,7 @@ startNew seed windowSize =
             , bag = bag
             , score = 0
             , windowSize = windowSize
+            , settings = settings
             }
 
 
@@ -81,6 +87,7 @@ type Msg
     = Tick Time
     | KeyDown KeyCode
     | Resize Window.Size
+    | ChangeShadow Shadow
 
 
 update : Msg -> State -> ( State, Cmd Msg )
@@ -96,7 +103,7 @@ simpleUpdate msg state =
                 KeyDown keyCode ->
                     case toKey keyCode of
                         Just F2 ->
-                            startNew state.seed state.windowSize
+                            startNew state.settings state.seed state.windowSize
 
                         _ ->
                             HomeScreen state
@@ -106,6 +113,9 @@ simpleUpdate msg state =
 
                 Tick _ ->
                     HomeScreen state
+
+                ChangeShadow shadow ->
+                    HomeScreen { state | settings = setShadow shadow state.settings }
 
         GameOn gos ->
             updateGameOn msg gos
@@ -120,7 +130,7 @@ updateGameOver msg state =
         KeyDown keyCode ->
             case toKey keyCode of
                 Just F2 ->
-                    startNew state.seed state.windowSize
+                    startNew state.settings state.seed state.windowSize
 
                 _ ->
                     GameOver state
@@ -130,6 +140,9 @@ updateGameOver msg state =
 
         Tick _ ->
             GameOver state
+
+        ChangeShadow shadow ->
+            GameOver { state | settings = setShadow shadow state.settings }
 
 
 updateGameOn : Msg -> GameOnState -> State
@@ -152,6 +165,9 @@ updateGameOn msg state =
 
         Resize size ->
             GameOn { state | windowSize = size }
+
+        ChangeShadow shadow ->
+            GameOn { state | settings = setShadow shadow state.settings }
 
 
 dropOne : Time -> GameOnState -> State
@@ -190,12 +206,12 @@ dropEnd hardDropCount state =
                         | matrix = matrix
                         , score = state.score + (getScore state.level count hardDropCount)
                         , lines = state.lines + count
-                        , level = max (earnedLevel newLines) state.level
+                        , level = Basics.max (earnedLevel newLines) state.level
                         , falling = falling
                         , bag = bag
                     }
         else
-            GameOver <| GameOverState state.score state.matrix state.bag.seed state.windowSize
+            GameOver <| GameOverState state.score state.matrix state.bag.seed state.windowSize state.settings
 
 
 getScore : Int -> Int -> Int -> Int
@@ -276,7 +292,7 @@ updateWithKey state key =
     in
         case key of
             F2 ->
-                startNew state.bag.seed state.windowSize
+                startNew state.settings state.bag.seed state.windowSize
 
             Left ->
                 transform moveLeft
@@ -339,18 +355,23 @@ empty =
 viewHomeScreen : HomeScreenState -> Html Msg
 viewHomeScreen state =
     viewGrid
-        (viewSample (getCellSize state.windowSize))
-        (h1 [] [ Html.text "Press F2 to start." ])
+        (viewSample state.settings (getCellSize state.windowSize))
+        (div []
+            [ h1 [] [ Html.text "Press F2 to start." ]
+            , viewSettings state.settings
+            ]
+        )
         empty
 
 
 viewGameOver : GameOverState -> Html Msg
 viewGameOver state =
     viewGrid
-        (viewMatrix (getCellSize state.windowSize) state.matrix Nothing)
+        (viewMatrix state.settings (getCellSize state.windowSize) state.matrix Nothing)
         (div []
             [ h1 [] [ Html.text <| "Game over " ++ (toString state.score) ]
             , h2 [] [ Html.text "press F2 to start" ]
+            , viewSettings state.settings
             ]
         )
         empty
@@ -359,13 +380,36 @@ viewGameOver state =
 viewGameOn : GameOnState -> Html Msg
 viewGameOn state =
     viewGrid
-        (viewMatrix (getCellSize state.windowSize) state.matrix (Just state.falling))
+        (viewMatrix state.settings (getCellSize state.windowSize) state.matrix (Just state.falling))
         (div []
             [ h1 [] [ text ("Score: " ++ (toString state.score)) ]
             , h1 [] [ text ("Level: " ++ (toString state.level)) ]
+            , viewSettings state.settings
             ]
         )
         empty
+
+
+viewSettings : Settings -> Html Msg
+viewSettings settings =
+    let
+        shadowBtn title value =
+            button
+                [ classList [ ( "pure-button", True ), ( "pure-button-active", settings.shadow == value ) ]
+                , onClick (ChangeShadow value)
+                ]
+                [ text title ]
+    in
+        div [ class "pure-form" ]
+            [ fieldset []
+                [ legend [] [ text "Shadow settings" ]
+                , div [ class "pure-button-group", role "group", ariaLabel "shadow" ]
+                    [ shadowBtn "None" None
+                    , shadowBtn "Gray" Gray
+                    , shadowBtn "Color" Color
+                    ]
+                ]
+            ]
 
 
 subscriptions : State -> Sub Msg

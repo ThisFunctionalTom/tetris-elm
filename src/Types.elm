@@ -72,3 +72,24 @@ toKey code =
 
         _ ->
             Nothing
+
+
+type Shadow
+    = None
+    | Gray
+    | Color
+
+
+type alias Settings =
+    { shadow : Shadow
+    }
+
+
+setShadow : Shadow -> Settings -> Settings
+setShadow shadow settings =
+    { settings | shadow = shadow }
+
+
+defaultSettings : Settings
+defaultSettings =
+    Settings Gray

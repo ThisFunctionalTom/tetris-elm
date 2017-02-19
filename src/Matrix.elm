@@ -253,8 +253,8 @@ nothing =
     g [] []
 
 
-viewMatrix : Int -> Matrix -> Maybe Falling -> Svg msg
-viewMatrix cellSize matrix falling =
+viewMatrix : Settings -> Int -> Matrix -> Maybe Falling -> Svg msg
+viewMatrix settings cellSize matrix falling =
     let
         w =
             toString <| matrix.width * cellSize
@@ -270,7 +270,7 @@ viewMatrix cellSize matrix falling =
             [ viewGrid matrix.width matrix.height
             , viewBlocks matrix.blocks
             , falling |> Maybe.map viewFalling |> Maybe.withDefault nothing
-            , falling |> Maybe.map (viewShadow matrix) |> Maybe.withDefault nothing
+            , falling |> Maybe.map (viewShadow settings.shadow matrix) |> Maybe.withDefault nothing
             ]
 
 
@@ -322,16 +322,33 @@ shadowColor =
     "dimgray"
 
 
-viewShadow : Matrix -> Falling -> Svg msg
-viewShadow matrix falling =
+viewShadow : Shadow -> Matrix -> Falling -> Svg msg
+viewShadow shadow matrix falling =
     let
         maybeShadow =
-            softDrop matrix falling
+            case shadow of
+                None ->
+                    Nothing
+
+                _ ->
+                    softDrop matrix falling
+
+        mapShadow _ color =
+            case shadow of
+                Gray ->
+                    "gray"
+
+                Color ->
+                    color
+
+                _ ->
+                    color
     in
         case maybeShadow of
             Just ( _, shadow ) ->
                 g [ fillOpacity "0.5" ]
                     [ Tetromino.blocks shadow.offset shadow.rotation shadow.tetromino
+                        |> Dict.map mapShadow
                         |> viewBlocks
                     ]
 
@@ -360,8 +377,8 @@ viewBlock ( ( row, col ), color ) =
         []
 
 
-viewSample : Int -> Svg msg
-viewSample cellSize =
+viewSample : Settings -> Int -> Svg msg
+viewSample settings cellSize =
     let
         t =
             Tetromino.tetrominoI
@@ -373,4 +390,4 @@ viewSample cellSize =
                 |> addBlocks (Falling t R2 ( 3 + 2 * t.size, 3 ))
                 |> addBlocks (Falling t RL ( 4 + 3 * t.size, 3 ))
     in
-        viewMatrix cellSize sample Nothing
+        viewMatrix settings cellSize sample Nothing
