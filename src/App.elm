@@ -158,32 +158,7 @@ dropOne : Time -> GameOnState -> State
 dropOne now state =
     case moveDown state.matrix state.falling of
         Nothing ->
-            let
-                ( count, matrix ) =
-                    state.matrix |> addBlocks state.falling |> removeFullLines
-
-                ( tetromino, bag ) =
-                    spawn state.bag
-
-                falling =
-                    newFalling state.matrix tetromino
-            in
-                if isValid state.matrix falling then
-                    let
-                        newLines =
-                            state.lines + count
-                    in
-                        GameOn
-                            { state
-                                | matrix = matrix
-                                , score = state.score + count
-                                , lines = state.lines + count
-                                , level = max (earnedLevel newLines) state.level
-                                , falling = falling
-                                , bag = bag
-                            }
-                else
-                    GameOver <| GameOverState state.score state.matrix state.bag.seed state.windowSize
+            dropEnd 0 state
 
         Just next ->
             let
@@ -191,6 +166,59 @@ dropOne now state =
                     now + ((dropInterval state.level) * Time.second)
             in
                 GameOn { state | falling = next, nextDrop = nextDrop }
+
+
+dropEnd : Int -> GameOnState -> State
+dropEnd hardDropCount state =
+    let
+        ( count, matrix ) =
+            state.matrix |> addBlocks state.falling |> removeFullLines
+
+        ( tetromino, bag ) =
+            spawn state.bag
+
+        falling =
+            newFalling state.matrix tetromino
+    in
+        if isValid state.matrix falling then
+            let
+                newLines =
+                    state.lines + count
+            in
+                GameOn
+                    { state
+                        | matrix = matrix
+                        , score = state.score + (getScore state.level count hardDropCount)
+                        , lines = state.lines + count
+                        , level = max (earnedLevel newLines) state.level
+                        , falling = falling
+                        , bag = bag
+                    }
+        else
+            GameOver <| GameOverState state.score state.matrix state.bag.seed state.windowSize
+
+
+getScore : Int -> Int -> Int -> Int
+getScore level lines dropCount =
+    let
+        linesScore =
+            case lines of
+                1 ->
+                    level * 100
+
+                2 ->
+                    level * 300
+
+                3 ->
+                    level * 500
+
+                4 ->
+                    level * 800
+
+                _ ->
+                    0
+    in
+        linesScore + dropCount
 
 
 earnedLevel : Int -> Int
@@ -263,7 +291,12 @@ updateWithKey state key =
                 transform moveDown
 
             Space ->
-                transform softDrop
+                case softDrop state.matrix state.falling of
+                    Just ( count, next ) ->
+                        dropEnd count { state | falling = next }
+
+                    Nothing ->
+                        GameOn state
 
 
 val : Int -> String

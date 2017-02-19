@@ -154,14 +154,21 @@ moveDown matrix falling =
             Nothing
 
 
-softDrop : Matrix -> Falling -> Maybe Falling
+softDrop : Matrix -> Falling -> Maybe ( Int, Falling )
 softDrop matrix valid =
-    case moveDown matrix valid of
-        Just next ->
-            softDrop matrix next
+    let
+        loop matrix valid count =
+            case ( count, moveDown matrix valid ) of
+                ( cnt, Just next ) ->
+                    loop matrix next (cnt + 1)
 
-        Nothing ->
-            Just valid
+                ( 0, Nothing ) ->
+                    Nothing
+
+                ( cnt, Nothing ) ->
+                    Just ( count, valid )
+    in
+        loop matrix valid 0
 
 
 defaultSize : { width : Int, height : Int }
@@ -322,7 +329,7 @@ viewShadow matrix falling =
             softDrop matrix falling
     in
         case maybeShadow of
-            Just shadow ->
+            Just ( _, shadow ) ->
                 g [ fillOpacity "0.5" ]
                     [ Tetromino.blocks shadow.offset shadow.rotation shadow.tetromino
                         |> viewBlocks
