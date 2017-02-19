@@ -323,9 +323,8 @@ viewShadow matrix falling =
     in
         case maybeShadow of
             Just shadow ->
-                g []
+                g [ fillOpacity "0.5" ]
                     [ Tetromino.blocks shadow.offset shadow.rotation shadow.tetromino
-                        |> Dict.map (\_ _ -> shadowColor)
                         |> viewBlocks
                     ]
 

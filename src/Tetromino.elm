@@ -96,7 +96,8 @@ rotateMinosTwice size ( row, col ) =
 
 tetrominoI : Tetromino
 tetrominoI =
-    tetromino "cyan"
+    --cyan
+    tetromino "#31C7EF"
         [ "    "
         , "XXXX"
         , "    "
@@ -107,7 +108,8 @@ tetrominoI =
 
 tetrominoJ : Tetromino
 tetrominoJ =
-    tetromino "blue"
+    --blue
+    tetromino "#0000FF"
         [ "X  "
         , "XXX"
         , "   "
@@ -117,7 +119,8 @@ tetrominoJ =
 
 tetrominoL : Tetromino
 tetrominoL =
-    tetromino "orange"
+    --orange
+    tetromino "#EF7921"
         [ "  X"
         , "XXX"
         , "   "
@@ -127,7 +130,8 @@ tetrominoL =
 
 tetrominoO : Tetromino
 tetrominoO =
-    tetromino "yellow"
+    --yellow
+    tetromino "#F7D308"
         [ "XX"
         , "XX"
         ]
@@ -136,7 +140,8 @@ tetrominoO =
 
 tetrominoS : Tetromino
 tetrominoS =
-    tetromino "green"
+    --green
+    tetromino "#00FF00"
         [ " XX"
         , "XX "
         , "   "
@@ -146,7 +151,8 @@ tetrominoS =
 
 tetrominoT : Tetromino
 tetrominoT =
-    tetromino "purple"
+    --purple
+    tetromino "#AD4D9C"
         [ " X "
         , "XXX"
         , "   "
@@ -156,7 +162,8 @@ tetrominoT =
 
 tetrominoZ : Tetromino
 tetrominoZ =
-    tetromino "red"
+    --red
+    tetromino "#FF0000"
         [ "XX "
         , " XX"
         , "   "
