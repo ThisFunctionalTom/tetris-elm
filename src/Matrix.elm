@@ -241,7 +241,12 @@ vals values =
     values |> List.map toString |> String.join " "
 
 
-viewMatrix : Int -> Matrix -> List Falling -> Svg.Svg msg
+nothing : Svg msg
+nothing =
+    g [] []
+
+
+viewMatrix : Int -> Matrix -> Maybe Falling -> Svg msg
 viewMatrix cellSize matrix falling =
     let
         w =
@@ -257,7 +262,8 @@ viewMatrix cellSize matrix falling =
             ]
             [ viewGrid matrix.width matrix.height
             , viewBlocks matrix.blocks
-            , g [] (falling |> List.map viewFalling)
+            , falling |> Maybe.map viewFalling |> Maybe.withDefault nothing
+            , falling |> Maybe.map (viewShadow matrix) |> Maybe.withDefault nothing
             ]
 
 
@@ -304,6 +310,29 @@ viewFalling falling =
             ]
 
 
+shadowColor : Color
+shadowColor =
+    "dimgray"
+
+
+viewShadow : Matrix -> Falling -> Svg msg
+viewShadow matrix falling =
+    let
+        maybeShadow =
+            softDrop matrix falling
+    in
+        case maybeShadow of
+            Just shadow ->
+                g []
+                    [ Tetromino.blocks shadow.offset shadow.rotation shadow.tetromino
+                        |> Dict.map (\_ _ -> shadowColor)
+                        |> viewBlocks
+                    ]
+
+            Nothing ->
+                g [] []
+
+
 viewBlocks : Blocks -> Svg msg
 viewBlocks blocks =
     g []
@@ -329,12 +358,13 @@ viewSample : Int -> Svg msg
 viewSample cellSize =
     let
         t =
-            Tetromino.tetrominoZ
-    in
-        viewMatrix cellSize
+            Tetromino.tetrominoI
+
+        sample =
             empty
-            [ Falling t R0 ( 1, 3 )
-            , Falling t RR ( 1 + t.size, 3 )
-            , Falling t R2 ( 1 + 2 * t.size, 3 )
-            , Falling t RL ( 1 + 3 * t.size, 3 )
-            ]
+                |> addBlocks (Falling t R0 ( 1, 3 ))
+                |> addBlocks (Falling t RR ( 2 + t.size, 3 ))
+                |> addBlocks (Falling t R2 ( 3 + 2 * t.size, 3 ))
+                |> addBlocks (Falling t RL ( 4 + 3 * t.size, 3 ))
+    in
+        viewMatrix cellSize sample Nothing

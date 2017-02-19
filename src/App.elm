@@ -234,7 +234,7 @@ viewHomeScreen state =
 viewGameOver : GameOverState -> Html Msg
 viewGameOver state =
     viewGrid
-        (viewMatrix (getCellSize state.windowSize) state.matrix [])
+        (viewMatrix (getCellSize state.windowSize) state.matrix Nothing)
         (div []
             [ h1 [] [ Html.text <| "Game over " ++ (toString state.score) ]
             , h2 [] [ Html.text "press F2 to start" ]
@@ -246,7 +246,7 @@ viewGameOver state =
 viewGameOn : GameOnState -> Html Msg
 viewGameOn state =
     viewGrid
-        (viewMatrix (getCellSize state.windowSize) state.matrix [ state.falling ])
+        (viewMatrix (getCellSize state.windowSize) state.matrix (Just state.falling))
         (h1 [] [ Html.text (toString state.score) ])
         empty
 
