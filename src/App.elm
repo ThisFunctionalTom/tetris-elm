@@ -10,11 +10,17 @@ import Platform.Sub as Sub
 import Keyboard exposing (KeyCode)
 import TetrominoBag exposing (..)
 import Window
+import Time exposing (Time)
+import AnimationFrame
 
 
 type alias GameOnState =
     { matrix : Matrix
     , falling : Falling
+    , level : Int
+    , lines : Int
+    , nextDrop : Time
+    , time : Time
     , bag : Bag
     , score : Int
     , windowSize : Window.Size
@@ -58,7 +64,17 @@ startNew seed windowSize =
         falling =
             newFalling matrix tetromino
     in
-        GameOn <| GameOnState matrix falling bag 0 windowSize
+        GameOn <|
+            { matrix = matrix
+            , falling = falling
+            , level = 1
+            , lines = 0
+            , nextDrop = 0.0
+            , time = 0.0
+            , bag = bag
+            , score = 0
+            , windowSize = windowSize
+            }
 
 
 type Msg
@@ -119,32 +135,15 @@ updateGameOver msg state =
 updateGameOn : Msg -> GameOnState -> State
 updateGameOn msg state =
     case msg of
-        Tick _ ->
-            case moveDown state.matrix state.falling of
-                Nothing ->
-                    let
-                        ( count, matrix ) =
-                            state.matrix |> addBlocks state.falling |> removeFullLines
-
-                        ( tetromino, bag ) =
-                            spawn state.bag
-
-                        falling =
-                            newFalling state.matrix tetromino
-                    in
-                        if isValid state.matrix falling then
-                            GameOn
-                                { state
-                                    | matrix = matrix
-                                    , score = state.score + count
-                                    , falling = falling
-                                    , bag = bag
-                                }
-                        else
-                            GameOver <| GameOverState state.score state.matrix state.bag.seed state.windowSize
-
-                Just next ->
-                    GameOn { state | falling = next }
+        Tick time ->
+            let
+                timedState =
+                    { state | time = time }
+            in
+                if time >= state.nextDrop then
+                    dropOne time timedState
+                else
+                    GameOn timedState
 
         KeyDown keyCode ->
             toKey keyCode
@@ -153,6 +152,87 @@ updateGameOn msg state =
 
         Resize size ->
             GameOn { state | windowSize = size }
+
+
+dropOne : Time -> GameOnState -> State
+dropOne now state =
+    case moveDown state.matrix state.falling of
+        Nothing ->
+            let
+                ( count, matrix ) =
+                    state.matrix |> addBlocks state.falling |> removeFullLines
+
+                ( tetromino, bag ) =
+                    spawn state.bag
+
+                falling =
+                    newFalling state.matrix tetromino
+            in
+                if isValid state.matrix falling then
+                    let
+                        newLines =
+                            state.lines + count
+                    in
+                        GameOn
+                            { state
+                                | matrix = matrix
+                                , score = state.score + count
+                                , lines = state.lines + count
+                                , level = max (earnedLevel newLines) state.level
+                                , falling = falling
+                                , bag = bag
+                            }
+                else
+                    GameOver <| GameOverState state.score state.matrix state.bag.seed state.windowSize
+
+        Just next ->
+            let
+                nextDrop =
+                    now + ((dropInterval state.level) * Time.second)
+            in
+                GameOn { state | falling = next, nextDrop = nextDrop }
+
+
+earnedLevel : Int -> Int
+earnedLevel lines =
+    1 + lines // 10
+
+
+dropInterval : Int -> Time
+dropInterval level =
+    case level of
+        1 ->
+            0.5
+
+        2 ->
+            0.45
+
+        3 ->
+            0.4
+
+        4 ->
+            0.35
+
+        5 ->
+            0.3
+
+        6 ->
+            0.25
+
+        7 ->
+            0.2
+
+        8 ->
+            0.15
+
+        9 ->
+            0.1
+
+        10 ->
+            0.05
+
+        _ ->
+            0.05
 
 
 updateWithKey : GameOnState -> Key -> State
@@ -247,7 +327,11 @@ viewGameOn : GameOnState -> Html Msg
 viewGameOn state =
     viewGrid
         (viewMatrix (getCellSize state.windowSize) state.matrix (Just state.falling))
-        (h1 [] [ Html.text (toString state.score) ])
+        (div []
+            [ h1 [] [ text ("Score: " ++ (toString state.score)) ]
+            , h1 [] [ text ("Level: " ++ (toString state.level)) ]
+            ]
+        )
         empty
 
 
@@ -262,7 +346,7 @@ subscriptions state =
     in
         case state of
             GameOn _ ->
-                Sub.batch [ always, Time.every (250 * Time.millisecond) (\t -> Tick t) ]
+                Sub.batch [ always, AnimationFrame.times Tick ]
 
             GameOver _ ->
                 always

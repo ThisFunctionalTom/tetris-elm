@@ -50,7 +50,8 @@ type Key
 
 toKey : KeyCode -> Maybe Key
 toKey code =
-    case code |> Debug.log "KeyCode: " of
+    --|> Debug.log "KeyCode: "
+    case code of
         32 ->
             Just Space
 
